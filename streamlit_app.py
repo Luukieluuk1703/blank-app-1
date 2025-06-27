@@ -19,41 +19,29 @@ def save_users(users: dict):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=2)
 
-# volgorde m-ma-… voor het oude formaat
 DAY_ORDER = {"maandag": 0, "dinsdag": 1, "woensdag": 2,
              "donderdag": 3, "vrijdag": 4, "zaterdag": 5, "zondag": 6}
 
 def tijdscore(txt: str) -> int:
-    """ Geeft een numerieke score om op te sorteren:
-        Dag 1 uur 1  -> 101
-        Maandag 3e  ->  3  (dag=0, uur=3)  => 3 + 1 * 100 = 103
-    """
-    if not txt:                 # leeg veld → helemaal achteraan
+    """Maakt sorteerbare score uit 'Dag 1 uur 2' of 'Maandag 2e'."""
+    if not txt:
         return 9_999
-
     t = txt.lower().strip()
-
-    # --- Nieuw formaat: "Dag 1 uur 2"
     m = re.match(r"dag\s*(\d+)\s*uur\s*(\d+)", t)
-    if m:
-        dag_num  = int(m.group(1))
-        uur_num  = int(m.group(2))
-        return dag_num * 100 + uur_num
-
-    # --- Oud formaat: "maandag 2e"
-    parts = t.split()
+    if m:  # nieuw formaat
+        return int(m.group(1)) * 100 + int(m.group(2))
+    parts = t.split()           # oud formaat
     if len(parts) >= 2:
-        dag_idx   = DAY_ORDER.get(parts[0], 99)
-        uur_digits= re.findall(r"\d+", parts[1])
-        uur_num   = int(uur_digits[0]) if uur_digits else 99
-        return dag_idx * 100 + uur_num
-
-    return 9_999   # onbekend formaat
+        dag = DAY_ORDER.get(parts[0], 99)
+        uren = re.findall(r"\d+", parts[1])
+        uur = int(uren[0]) if uren else 99
+        return dag * 100 + uur
+    return 9_999
 
 def df_to_vragen(df: pd.DataFrame) -> list:
     vragen = []
     for _, r in df.iterrows():
-        vraag = {
+        v = {
             "vraag"    : str(r.get("vragen.", "")).strip(),
             "antwoord" : str(r.get("goed antwoord", "")).strip(),
             "type"     : "invul"
@@ -62,36 +50,40 @@ def df_to_vragen(df: pd.DataFrame) -> list:
             "tijd"     : str(r.get("dag+uur (voor volgorde)", "")).strip(),
             "vak"      : str(r.get("vak.", "")).strip()
         }
-
-        if vraag["type"] == "meerkeuze":
-            opties = [vraag["antwoord"]]
+        if v["type"] == "meerkeuze":
+            opties = [v["antwoord"]]
             fout   = str(r.get("eventuele foute antwoorden (meerkeuze)", "")).strip()
             if fout:
-                for o in fout.replace(",", ";").split(";"):
+                # split op komma's, puntkomma’s of meerdere scheidingstekens
+                for o in re.split(r"[;,]+", fout):
                     o = o.strip()
                     if o:
                         opties.append(o)
             random.shuffle(opties)
-            vraag["opties"] = opties
-
-        vragen.append(vraag)
-
-    return sorted(vragen, key=lambda v: tijdscore(v["tijd"]))
+            v["opties"] = opties
+        vragen.append(v)
+    return sorted(vragen, key=lambda x: tijdscore(x["tijd"]))
 
 def load_questions() -> list:
     if not os.path.exists(QUESTIONS_XLSX):
-        st.error("Spreadsheet niet gevonden in de repo.")
+        st.error("Spreadsheet niet gevonden.")
         return []
-    df = pd.read_excel(QUESTIONS_XLSX)
-    return df_to_vragen(df)
+    return df_to_vragen(pd.read_excel(QUESTIONS_XLSX))
+
+# ---------- ANTWOORD-CHECK ----------
+def clean_txt(s: str) -> str:
+    """Verwijder alle niet-alfanumerieke tekens en maak lower-case."""
+    return re.sub(r"[^a-zA-Z0-9]", "", s or "").lower()
+
+def correct(invul: str, juist: str) -> bool:
+    return clean_txt(invul) == clean_txt(juist)
 
 # ---------- LOGIN ----------
-def login_screen(users: dict):
+def login(users: dict):
     st.header("📚 Schoolquiz | Inloggen")
-    tab_login, tab_reg = st.tabs(["Inloggen", "Registreren"])
+    login_tab, reg_tab = st.tabs(["Inloggen", "Registreren"])
 
-    # --- inloggen
-    with tab_login:
+    with login_tab:
         u = st.text_input("Gebruikersnaam")
         p = st.text_input("Wachtwoord", type="password")
         if st.button("Inloggen"):
@@ -101,8 +93,7 @@ def login_screen(users: dict):
             else:
                 st.error("Onjuiste inloggegevens.")
 
-    # --- registreren
-    with tab_reg:
+    with reg_tab:
         nu = st.text_input("Nieuwe gebruikersnaam")
         p1 = st.text_input("Wachtwoord", type="password")
         p2 = st.text_input("Herhaal wachtwoord", type="password")
@@ -119,10 +110,10 @@ def login_screen(users: dict):
 # ---------- QUIZ ----------
 def init_quiz(vragen):
     st.session_state.vragenlijst = vragen
-    st.session_state.idx   = 0
+    st.session_state.idx = 0
     st.session_state.score = 0
 
-def quiz_view(users, vragen):
+def quiz(users, vragen):
     st.sidebar.write(f"👤 **{st.session_state.user}**")
     if st.sidebar.button("Uitloggen"):
         del st.session_state.user
@@ -131,37 +122,37 @@ def quiz_view(users, vragen):
     if "vragenlijst" not in st.session_state:
         init_quiz(vragen)
 
-    idx = st.session_state.idx
-    if idx >= len(st.session_state.vragenlijst):
-        st.success(f"Je bent klaar! Eindscore: {st.session_state.score}/{len(vragen)}")
+    i = st.session_state.idx
+    if i >= len(st.session_state.vragenlijst):
+        st.success(f"Eindscore : {st.session_state.score}/{len(vragen)}")
         if st.session_state.score > users[st.session_state.user].get("highscore", 0):
             users[st.session_state.user]["highscore"] = st.session_state.score
             save_users(users)
             st.balloons()
             st.toast("Nieuw persoonlijk record!", icon="🏆")
-        if st.button("🚀 Opnieuw spelen"):
+        if st.button("🔄 Opnieuw spelen"):
             init_quiz(vragen)
             st.rerun()
         return
 
-    q = st.session_state.vragenlijst[idx]
+    q = st.session_state.vragenlijst[i]
     st.subheader(f"{q['tijd']} | {q['vak']}")
     st.write(q["vraag"])
 
     if q["type"] == "meerkeuze":
-        keuze = st.radio("Antwoord:", q["opties"], key=f"k{idx}")
-        if st.button("Bevestig", key=f"b{idx}"):
-            if keuze == q["antwoord"]:
+        ans = st.radio("Antwoord:", q["opties"], key=f"m{i}")
+        if st.button("Bevestig", key=f"bm{i}"):
+            if ans == q["antwoord"]:
                 st.success("✅ Correct")
                 st.session_state.score += 1
             else:
                 st.error(f"❌ Fout — correct was **{q['antwoord']}**")
             st.session_state.idx += 1
             st.rerun()
-    else:
-        inv = st.text_input("Antwoord:", key=f"i{idx}")
-        if st.button("Bevestig", key=f"b{idx}"):
-            if inv.strip().lower() == q["antwoord"].lower():
+    else:  # invul
+        inv = st.text_input("Antwoord:", key=f"i{i}")
+        if st.button("Bevestig", key=f"bi{i}"):
+            if correct(inv, q["antwoord"]):
                 st.success("✅ Correct")
                 st.session_state.score += 1
             else:
@@ -170,23 +161,23 @@ def quiz_view(users, vragen):
             st.rerun()
 
 # ---------- LEADERBOARD ----------
-def leaderboard(users: dict):
+def leaderboard(users):
     st.header("🏆 Leaderboard")
-    data = sorted([(u, info.get("highscore", 0)) for u, info in users.items()],
+    data = sorted([(u, v.get("highscore", 0)) for u, v in users.items()],
                   key=lambda x: x[1], reverse=True)
     st.table(data[:10])
 
 # ---------- MAIN ----------
 def main():
     st.set_page_config("Schoolquiz", "📘")
-    users    = load_users()
-    vragen   = load_questions()
+    users  = load_users()
+    vragen = load_questions()
 
     if "user" not in st.session_state:
-        login_screen(users)
+        login(users)
     else:
         page = st.sidebar.radio("Menu", ["Quiz", "Leaderboard"])
-        (leaderboard if page == "Leaderboard" else quiz_view)(users, vragen)
+        (leaderboard if page == "Leaderboard" else quiz)(users, vragen)
 
 if __name__ == "__main__":
     main()
