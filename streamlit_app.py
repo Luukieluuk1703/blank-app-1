@@ -126,7 +126,7 @@ def init_quiz(vragen):
     • Sorteer daarna op dag+uur zodat ze alsnog in de juiste volgorde
       verschijnen (2e → 3e → 4e …).
     """
-    quota = {"wiskunde": 2, "geschiedenis": 1, "nederlands": 2}
+    quota = {"math": 2, "history": 1, "nederlands": 2}
     selectie = []
 
     rng = random.Random()          # eigen random-instantie
