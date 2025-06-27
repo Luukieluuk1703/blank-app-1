@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import hashlib
+import random
 
 USERS_FILE = "users.json"
 QUESTIONS_XLSX = "Untitled spreadsheet.xlsx"
@@ -21,6 +22,28 @@ def save_users(users: dict):
     with open(USERS_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=2)
 
+# Voor goede sorteervolgorde op dag en uur
+dagvolgorde = {
+    "maandag": 0,
+    "dinsdag": 1,
+    "woensdag": 2,
+    "donderdag": 3,
+    "vrijdag": 4
+}
+
+def tijdscore(tekst):
+    if not tekst:
+        return 999
+    delen = tekst.lower().split()
+    if len(delen) < 2:
+        return 999
+    dag = delen[0]
+    try:
+        uur = int(delen[1].replace("e", "").replace("ste", ""))
+    except:
+        uur = 99
+    return dagvolgorde.get(dag, 9) * 10 + uur
+
 def convert_dataframe_to_list(df: pd.DataFrame) -> list:
     vragen = []
     for _, row in df.iterrows():
@@ -38,11 +61,10 @@ def convert_dataframe_to_list(df: pd.DataFrame) -> list:
                 for opt in fout.replace(",", ";").split(";"):
                     if opt.strip():
                         opties.append(opt.strip())
-            import random
             random.shuffle(opties)
             vraag["opties"] = opties
         vragen.append(vraag)
-    return sorted(vragen, key=lambda v: v["tijd"])
+    return sorted(vragen, key=lambda v: tijdscore(v["tijd"]))
 
 def load_questions() -> list:
     if not os.path.exists(QUESTIONS_XLSX):
@@ -127,7 +149,7 @@ def quiz_view(users, vragen):
     else:
         invul = st.text_input("Jouw antwoord:", key=f"invul_{idx}")
         if st.button("Bevestig", key=f"btn_{idx}"):
-            if invul.strip() == vraag["antwoord"]:
+            if invul.strip().lower() == vraag["antwoord"].lower():
                 st.success("Correct!")
                 st.session_state.score += 1
             else:
