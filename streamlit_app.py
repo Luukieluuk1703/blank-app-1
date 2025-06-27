@@ -107,11 +107,25 @@ def login(users: dict):
                 save_users(users)
                 st.success("Account aangemaakt — log nu in!")
 
-# ---------- QUIZ ----------
+# ---------- QUIZ ----------# Vervangt init_quiz()
 def init_quiz(vragen):
-    st.session_state.vragenlijst = vragen
-    st.session_state.idx = 0
+    geselecteerd = []
+    vak_filter = {
+        "math": 2,
+        "history": 1,
+        "nederlands": 2
+    }
+
+    for vak, aantal in vak_filter.items():
+        subset = [v for v in vragen if v["vak"].lower().strip() == vak]
+        random.shuffle(subset)
+        geselecteerd.extend(subset[:aantal])
+
+    random.shuffle(geselecteerd)  # eventueel nog herschudden
+    st.session_state.vragenlijst = geselecteerd
     st.session_state.score = 0
+    st.session_state.idx = 0
+
 
 def quiz(users, vragen):
     st.sidebar.write(f"👤 **{st.session_state.user}**")
