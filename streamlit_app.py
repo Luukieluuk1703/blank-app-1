@@ -125,7 +125,7 @@ def init_quiz(vragen):
     2 Wiskunde – 1 Geschiedenis – 2 Nederlands.
     Geen random shuffle meer: we lopen gesorteerd door de lijst.
     """
-    quota   = {"wiskunde": 2, "geschiedenis": 1, "nederlands": 2}
+    quota   = {"math": 2, "history": 1, "nederlands": 2}
     selectie = []
 
     # 'vragen' staat al gesorteerd op tijdscore (zie df_to_vragen)
