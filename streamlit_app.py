@@ -84,9 +84,9 @@ def login(users: dict):
     login_tab, reg_tab = st.tabs(["Inloggen", "Registreren"])
 
     with login_tab:
-        u = st.text_input("Gebruikersnaam")
-        p = st.text_input("Wachtwoord", type="password")
-        if st.button("Inloggen"):
+        u = st.text_input("Gebruikersnaam", key="login_user")
+        p = st.text_input("Wachtwoord", type="password", key="login_pw")
+        if st.button("Inloggen", key="login_btn"):
             if u in users and users[u]["pw"] == hash_pw(p):
                 st.session_state.user = u
                 st.rerun()
@@ -94,10 +94,10 @@ def login(users: dict):
                 st.error("Onjuiste inloggegevens.")
 
     with reg_tab:
-        nu = st.text_input("Nieuwe gebruikersnaam")
-        p1 = st.text_input("Wachtwoord", type="password")
-        p2 = st.text_input("Herhaal wachtwoord", type="password")
-        if st.button("Account aanmaken"):
+        nu = st.text_input("Nieuwe gebruikersnaam", key="reg_user")
+        p1 = st.text_input("Wachtwoord", type="password", key="reg_pw1")
+        p2 = st.text_input("Herhaal wachtwoord", type="password", key="reg_pw2")
+        if st.button("Account aanmaken", key="reg_btn"):
             if nu in users:
                 st.error("Gebruiker bestaat al.")
             elif p1 != p2:
