@@ -121,31 +121,29 @@ def login(users: dict):
 # ---------- QUIZ LOGICA ----
 def init_quiz(vragen):
     """
-    Kies precies 5 vragen in rooster­volgorde:
-    2 Wiskunde – 1 Geschiedenis – 2 Nederlands.
-    Geen random shuffle meer: we lopen gesorteerd door de lijst.
+    • Kies elke ronde willekeurige vragen volgens het quota-schema
+      (2 Wi, 1 GS, 2 Ne).
+    • Sorteer daarna op dag+uur zodat ze alsnog in de juiste volgorde
+      verschijnen (2e → 3e → 4e …).
     """
-    quota   = {"math": 2, "history": 1, "nederlands": 2}
+    quota = {"wiskunde": 2, "geschiedenis": 1, "nederlands": 2}
     selectie = []
 
-    # 'vragen' staat al gesorteerd op tijdscore (zie df_to_vragen)
-    for q in vragen:
-        vak = q["vak"].lower().strip()
-        if vak in quota and quota[vak] > 0:
-            selectie.append(q)
-            quota[vak] -= 1
-        if sum(quota.values()) == 0:
-            break
+    rng = random.Random()          # eigen random-instantie
+    for vak, n in quota.items():
+        subset = [q for q in vragen if q["vak"].lower().strip() == vak]
+        if len(subset) < n:
+            st.error(f"Te weinig vragen voor {vak} (gevonden {len(subset)}, nodig {n}).")
+            st.stop()
+        selectie.extend(rng.sample(subset, n))   # willekeurig binnen het vak
 
-    # Controle: genoeg vragen gevonden?
-    if sum(quota.values()) > 0:
-        ontbrekend = ", ".join([f"{v}: {n}" for v, n in quota.items() if n > 0])
-        st.error(f"Niet genoeg vragen in spreadsheet voor: {ontbrekend}")
-        st.stop()
+    # Nu rooster-volgorde herstellen
+    selectie.sort(key=lambda q: tijdscore(q["tijd"]))
 
-    st.session_state.vragenlijst = selectie       # rooster-volgorde
-    st.session_state.idx         = 0
-    st.session_state.score       = 0
+    st.session_state.vragenlijst = selectie
+    st.session_state.idx   = 0
+    st.session_state.score = 0
+
 
 
 def quiz(users, vragen):
