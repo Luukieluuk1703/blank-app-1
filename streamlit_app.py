@@ -118,18 +118,35 @@ def login(users: dict):
                 save_users(users)
                 st.success("Account aangemaakt — log nu in!")
 
-# ---------- QUIZ LOGICA ----------
+# ---------- QUIZ LOGICA ----
 def init_quiz(vragen):
-    verdeling = {"wiskunde": 2, "geschiedenis": 1, "nederlands": 2}
-    selectie  = []
-    for vak, n in verdeling.items():
-        sset = [q for q in vragen if q["vak"].lower().strip() == vak]
-        random.shuffle(sset)
-        selectie.extend(sset[:n])
-    selectie.sort(key=lambda q: tijdscore(q["tijd"]))   # rooster-volgorde
-    st.session_state.vragenlijst = selectie
-    st.session_state.idx   = 0
-    st.session_state.score = 0
+    """
+    Kies precies 5 vragen in rooster­volgorde:
+    2 Wiskunde – 1 Geschiedenis – 2 Nederlands.
+    Geen random shuffle meer: we lopen gesorteerd door de lijst.
+    """
+    quota   = {"wiskunde": 2, "geschiedenis": 1, "nederlands": 2}
+    selectie = []
+
+    # 'vragen' staat al gesorteerd op tijdscore (zie df_to_vragen)
+    for q in vragen:
+        vak = q["vak"].lower().strip()
+        if vak in quota and quota[vak] > 0:
+            selectie.append(q)
+            quota[vak] -= 1
+        if sum(quota.values()) == 0:
+            break
+
+    # Controle: genoeg vragen gevonden?
+    if sum(quota.values()) > 0:
+        ontbrekend = ", ".join([f"{v}: {n}" for v, n in quota.items() if n > 0])
+        st.error(f"Niet genoeg vragen in spreadsheet voor: {ontbrekend}")
+        st.stop()
+
+    st.session_state.vragenlijst = selectie       # rooster-volgorde
+    st.session_state.idx         = 0
+    st.session_state.score       = 0
+
 
 def quiz(users, vragen):
     st.sidebar.write(f"👤 **{st.session_state.user}**")
