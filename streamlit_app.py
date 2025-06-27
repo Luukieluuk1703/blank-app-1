@@ -113,8 +113,8 @@ def login(users: dict):
 # ---- INIT QUIZ MET VERDELING ----
 def init_quiz(vragen):
     quota = {
-        "wiskunde": 2,
-        "geschiedenis": 1,
+        "math": 2,
+        "history": 1,
         "nederlands": 2,
         "intermission": 2  # voor de pauzes
     }
